@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+
+    <service uuid="1800">
+        <description>Generic Access Profile</description>
+    
+        <characteristic uuid="2a00">
+            <properties read="true" const="true" />
+            <value>CANBus Triple</value>
+        </characteristic>
+
+        <characteristic uuid="2a01">
+            <properties read="true" const="true" />
+            <value type="hex">00</value>
+        </characteristic>
+
+        <!-- Software Build ID -->
+        <!--
+        <characteristic uuid="2a80">
+            <properties read="true" const="true" />
+            <value type="hex">01</value>
+        </characteristic>
+    -->
+        
+    </service>
+
+    <service uuid="7a1fb359-735c-4983-8082-bdd7674c74d2" advertise="true">
+        <description>Atmega 32u4 Serial</description>
+        <characteristic uuid="b0d6c9fe-e38a-4d31-9272-b8b3e93d8657" id="xgatt_data_rx">
+            <description>Serial RX Indicate</description>
+            <properties write="true" indicate="true"/>
+            <value variable_length="true" length="20" type="user"/>
+        </characteristic>
+        <characteristic uuid="b0d6c9fe-e38a-4d31-9272-b8b3e93d8658" id="xgatt_data">
+            <description>Serial RX Notify</description>
+            <properties write="true" write_no_response="true" notify="true" />
+            <value variable_length="true" length="20" type="user"/>
+        </characteristic>
+    </service>
+
+
+    <service uuid="7a1fb359-735c-4983-8082-bdd7674c74d3" advertise="true">
+        <description>Sensors</description>
+        <characteristic uuid="c65b54aa-6904-41fa-b560-73c6a9f5c761" id="xgatt_sensor1">
+            <description>Sensor 1</description>
+            <properties read="true" indicate="true" />
+            <value variable_length="true" length="20" type="hex">0</value>
+        </characteristic>
+        <characteristic uuid="c65b54aa-6904-41fa-b560-73c6a9f5c762" id="xgatt_sensor2">
+            <description>Sensor 2</description>
+            <properties read="true" indicate="true" />
+            <value variable_length="true" length="20" type="hex">0</value>
+        </characteristic>
+        <characteristic uuid="c65b54aa-6904-41fa-b560-73c6a9f5c763" id="xgatt_sensor3">
+            <description>Sensor 3</description>
+            <properties read="true" indicate="true" />
+            <value variable_length="true" length="20" type="hex">0</value>
+        </characteristic>
+        <characteristic uuid="c65b54aa-6904-41fa-b560-73c6a9f5c764" id="xgatt_sensor4">
+            <description>Sensor 4</description>
+            <properties read="true" indicate="true" />
+            <value variable_length="true" length="20" type="hex">0</value>
+        </characteristic>
+        <characteristic uuid="c65b54aa-6904-41fa-b560-73c6a9f5c765" id="xgatt_sensor5">
+            <description>Sensor 5</description>
+            <properties read="true" indicate="true" />
+            <value variable_length="true" length="20" type="hex">0</value>
+        </characteristic>
+        <characteristic uuid="c65b54aa-6904-41fa-b560-73c6a9f5c766" id="xgatt_sensor6">
+            <description>Sensor 6</description>
+            <properties read="true" indicate="true" />
+            <value variable_length="true" length="20" type="hex">0</value>
+        </characteristic>
+        <characteristic uuid="c65b54aa-6904-41fa-b560-73c6a9f5c767" id="xgatt_sensor7">
+            <description>Sensor 7</description>
+            <properties read="true" indicate="true" />
+            <value variable_length="true" length="20" type="hex">0</value>
+        </characteristic>
+        <characteristic uuid="c65b54aa-6904-41fa-b560-73c6a9f5c768" id="xgatt_sensor8">
+            <description>Sensor 8</description>
+            <properties read="true" indicate="true" />
+            <value variable_length="true" length="20" type="hex">0</value>
+        </characteristic>
+    </service>
+    
+    
+    <service uuid="35e71686-b1c3-45e7-9da6-1ca2393a41f3" advertise="true">
+        <description>Resets</description>
+        <!-- <characteristic uuid="5fcd52b7-4cfb-4095-aeb2-5c5511646bbe" id="xgatt_mcu_reset">
+            <description>Atmega MCU Reset</description>
+			<properties read="true" write="true" />
+			<value length="1" type="hex">00</value>
+        </characteristic> -->
+        <characteristic uuid="5fcd52b7-4cfb-4095-aeb2-5c5511646bbf" id="xgatt_dfu_reset">
+            <description>Reset to DFU Mode</description>
+            <properties read="true" write="true" />
+            <value length="1" type="hex">00</value>
+        </characteristic>
+    </service>
+
+    <service uuid="7a1fb359-735c-4983-8082-bdd7674c74d4" advertise="true">
+        <description>Debug</description>
+        <characteristic uuid="2657a33f-34cd-4066-a5ee-208252ce0bef" id="xgatt_debug">
+            <description>Debug Value</description>
+            <properties read="true" write="true" indicate="true"/>
+            <value variable_length="true" length="20" type="hex"/>
+        </characteristic>
+        <characteristic uuid="2657a33f-34cd-4066-a5ee-208252ce0bff" id="xgatt_debug2">
+            <description>Debug Value</description>
+            <properties read="true" write="true" indicate="true"/>
+            <value variable_length="true" length="20" type="hex"/>
+        </characteristic>
+    </service>
+
+<!-- 
+    <service uuid="cd824b70-581d-4f81-8311-7a68d51d8d47" advertise="true">
+        <description>Atmega 32u4 Flash</description>
+        <characteristic uuid="2657a33f-34cd-4066-a5ee-208252ce0bef" id="xgatt_flashdata">
+            <description>Intel Hex Data</description>
+            <properties write="true" indicate="false" />
+            <value variable_length="true" length="32768" type="user" />
+        </characteristic>
+        <characteristic uuid="ef92eb7a-4b3a-4b0c-850f-365bf9dd594e" id="xgatt_flashstart">
+            <description>Start Flash</description>
+            <properties read="true" write="true" />
+            <value length="1" type="hex">0</value>
+        </characteristic>
+    </service>
+ -->
+
+</configuration>

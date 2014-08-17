@@ -1,0 +1,289 @@
+dim result
+
+# endpoint data in
+dim in(20) 
+dim in_len
+
+# endpoint data out
+dim out(20) 
+dim out_len
+
+# Serial RX Buffer
+dim srx_buffer(256)
+dim srx_index
+dim srx_write_index
+dim srx_write_len
+dim srx_indicate
+dim srx_indicated
+
+# Atmega 32u4 Reset Flag
+dim at_reset
+
+# Is the device connected
+dim connected
+
+#delay counter
+dim delay
+
+procedure delay(d)
+	let delay = d
+    while delay>0
+    	delay = delay-1
+    end while
+end
+
+
+#procedure mcu_reset()
+#	at_reset = 1
+#    call system_endpoint_tx(system_endpoint_uart1, 18, "\n\r{e:'mcu_reset'}}\n")
+#    call hardware_io_port_write(1, $01, $01)
+#    #call hardware_io_port_write(1, $01, $00)
+#end
+#
+#procedure mcu_reset_complete()
+#	at_reset = 0
+#    call attributes_write(xgatt_mcu_reset, 0, 1, 0)  # Set char back to 0 (off)
+#	call hardware_io_port_write(1, $01, $00)
+#end
+
+procedure set_sensor_gatt(len)
+
+    if srx_buffer(srx_index+1:1) = $01
+        call attributes_write(xgatt_sensor1, 0, len, srx_buffer(srx_index+2:len))
+    end if
+    if srx_buffer(srx_index+1:1) = $02
+        call attributes_write(xgatt_sensor2, 0, len, srx_buffer(srx_index+2:len))
+    end if
+    if srx_buffer(srx_index+1:1) = $03
+        call attributes_write(xgatt_sensor3, 0, len, srx_buffer(srx_index+2:len))
+    end if
+    if srx_buffer(srx_index+1:1) = $04
+        call attributes_write(xgatt_sensor4, 0, len, srx_buffer(srx_index+2:len))
+    end if
+    if srx_buffer(srx_index+1:1) = $05
+        call attributes_write(xgatt_sensor5, 0, len, srx_buffer(srx_index+2:len))
+    end if
+    if srx_buffer(srx_index+1:1) = $06
+        call attributes_write(xgatt_sensor6, 0, len, srx_buffer(srx_index+2:len))
+    end if
+    if srx_buffer(srx_index+1:1) = $07
+        call attributes_write(xgatt_sensor7, 0, len, srx_buffer(srx_index+2:len))
+    end if
+    if srx_buffer(srx_index+1:1) = $08
+        call attributes_write(xgatt_sensor8, 0, len, srx_buffer(srx_index+2:len))
+    end if
+
+end
+
+
+
+
+
+# Boot event listener (gets executed when the device is powered)
+event system_boot(major, minor, patch, build, ll_version, protocol_version, hw)
+    connected = 0               # We are not connected
+    at_reset = 0				# Set MCU reset pin low, so so low. 
+
+    # Reset Serial RX Buffer Index
+    srx_index = 0
+    srx_write_index = 0
+    
+    #call system_endpoint_set_watermarks(system_endpoint_uart1, 0, 0)    # Disable watermarks
+    call system_endpoint_set_watermarks(system_endpoint_uart1, 1, $ff)   # Enable watermarks
+    call gap_set_adv_parameters(32, 48, 7)      # Set advertisement parameters 20 to 30 ms and all channels
+    call gap_set_mode(gap_general_discoverable, gap_undirected_connectable) # Start advertisement
+    
+    # configure P1_0 and P0_0 as output. Connected LED and MCU Reset respectively
+	call hardware_io_port_config_direction(1, $01)
+    call hardware_io_port_config_direction(0, $01)
+	call hardware_io_port_write(0, $01, 0)
+    call hardware_io_port_write(1, $01, 0)
+	
+	#Set timer to generate event every 2s
+	#call hardware_set_soft_timer(32768*2, 1, 0)
+
+    # Tell MCU to exit bootloader, since the BT stack sents the reset line low on boot and we can't change that.
+    # call hardware_set_soft_timer(32768/10, 3, 1)
+
+end
+
+#Timer event listener 
+event hardware_soft_timer(handle)
+
+    if handle = 1
+	# If mcu reset is low, set high
+    	if at_reset
+    		call mcu_reset_complete()
+    	end if
+    end if
+
+    if handle = 2
+
+        if srx_index > srx_write_index && connected = 1
+
+            if srx_indicate = 1 && srx_indicated = 0
+                return
+            end if
+
+            srx_write_len = (srx_index - srx_write_index)
+            if srx_write_len > 20 then
+                srx_write_len = 20
+            end if
+
+            if srx_indicate
+                call attributes_write(xgatt_data_rx, 0, srx_write_len, srx_buffer(srx_write_index:srx_write_len))
+                srx_indicated = 0
+            else
+                call attributes_write(xgatt_data, 0, srx_write_len, srx_buffer(srx_write_index:srx_write_len))
+            end if
+
+            srx_write_index = srx_write_index + srx_write_len
+
+            #call attributes_write(xgatt_debug, 0, 2, srx_write_index)
+            #call attributes_write(xgatt_debug2, 0, 2, srx_index)
+
+            if srx_write_index >= srx_index then
+                srx_index = 0
+                srx_write_index = 0
+            end if
+
+        end if
+    end if
+
+    if handle = 3 
+        call system_endpoint_tx(system_endpoint_uart1, 1, "E")
+    end if
+
+end
+
+# Connection event listener
+event connection_status(connection, flags, address, address_type, conn_interval, timeout, latency, bonding)
+    connected = 1       #Device is connected
+    call hardware_io_port_write(0, $01, 1)
+    #call system_endpoint_tx(system_endpoint_uart1, 18, "\n\r++ Connected ++\n")
+    call hardware_set_soft_timer((32768/1000) * conn_interval / 4, 2, 0)
+    #call attributes_write(xgatt_debug, 0, 2, conn_interval)
+end
+
+# Disconnection event listener
+event connection_disconnected(connection, reason)
+    connected = 0                   # We are not connected
+    call hardware_io_port_write(0, $01, 0)
+    #call system_endpoint_set_watermarks(system_endpoint_uart1, 0, 0)    # Disable watermarks
+    call gap_set_adv_parameters(32, 48, 7)      # Set advertisement parameters 20 to 30 ms and all channels
+    call gap_set_mode(gap_general_discoverable, gap_undirected_connectable) # Start advertisement
+    #call system_endpoint_tx(system_endpoint_uart1, 18, "\n\r++ Disconnected ++\n")
+end
+
+# Incoming data from Bluetooth: Attributes value event listener
+event attributes_value(connection, reason, handle, offset, value_len, value_data)
+    if handle = xgatt_data || handle = xgatt_data_rx then
+        out(0:value_len) = value_data(0:value_len)      							# Copy data from GATT
+        out_len = value_len                 										# Store data length
+        call system_endpoint_set_watermarks(system_endpoint_uart1, $ff, out_len)    # Set TX watermark to data length
+    end if
+    
+    if handle = xgatt_mcu_reset then
+    	if value_data(0:1) & $01
+    		call mcu_reset()
+    	else
+    		at_reset = 0
+    		call hardware_io_port_write(1, $01, 0)
+    	end if
+    end if
+
+    if handle = xgatt_dfu_reset then
+        if value_data(0:1) & $01
+            # Put MCU into UART pass through mode
+            call system_endpoint_tx(system_endpoint_uart1, 2, $0208)
+            # Reboot to UART DFU mode
+            call system_reset(1)
+        end if
+    end if
+     
+end
+
+# System endpoint watermark TX event listener
+event system_endpoint_watermark_tx(endpoint, size)
+    if (endpoint = system_endpoint_uart1) then
+        call system_endpoint_set_watermarks(system_endpoint_uart1, $ff, 0)      # Disable TX watermark
+
+        call system_endpoint_tx(system_endpoint_uart1, out_len, out(0:out_len)) # Write data to UART
+        call attributes_user_write_response(0,0)
+        out_len = 0
+    end if
+end
+
+# Attribute status event listener
+# Event occurs if attribute's Client Characteristic Configuration value changes.
+event attributes_status(handle, flags)
+    
+    if handle = xgatt_data_rx then
+        if flags & 2 then
+            srx_indicate = 1
+            srx_indicated = 1
+        end if
+    end if
+
+    if handle = xgatt_data
+        if flags & 1 then
+            srx_indicate = 0
+            srx_indicated = 0
+        end if
+    end if
+    
+end
+
+# System endpoint watermark event listener
+# Generated when there is data available from UART
+event system_endpoint_watermark_rx(endpoint, size)
+    if (endpoint = system_endpoint_uart1) then
+        
+        call system_endpoint_set_watermarks(system_endpoint_uart1, 0, $ff)  # disable RX watermark
+
+        in_len = size
+
+        if srx_index + in_len > 210
+
+            in_len = 200 - srx_index
+            call system_endpoint_rx(system_endpoint_uart1, in_len)(result, in_len, srx_buffer(srx_index:in_len))
+
+            srx_index = 0
+            in_len = size - in_len
+        else
+
+            call system_endpoint_rx(system_endpoint_uart1, in_len)(result, in_len, srx_buffer(srx_index:in_len))
+            
+            ## Check buffer for sensor command 0xe783
+            if srx_buffer(srx_index-1:2) = $83e7
+                call set_sensor_gatt( in_len - 2 )
+            else
+                if connected = 1
+                    srx_index = srx_index + in_len
+                end if
+            end if
+
+        end if
+
+        call system_endpoint_set_watermarks(system_endpoint_uart1, 1, $ff)  # enable RX watermark
+
+        call attributes_write(xgatt_debug, 0, 2, in_len)
+
+    end if
+end
+
+
+# Attribute client indicated event listener
+event attclient_indicated(connection, attrhandle)
+    if attrhandle = xgatt_data_rx then
+        call system_endpoint_set_watermarks(system_endpoint_uart1, 1, $ff)  # set RX watermark to 1 byte
+        srx_indicated = 1
+        in_len = 0
+    end if
+end
+
+
+
+
+
+

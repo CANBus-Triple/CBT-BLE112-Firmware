@@ -3,13 +3,20 @@
 <hardware>
     <sleeposc enable="true" ppm="30" />
     <usb enable="false" />
-    <sleep enable="false" />
+    <sleep enable="true" max_mode="3"/>
+    <wakeup_pin enable="true" port="1" pin="0" />
+    <slow_clock enable="true" />
+    <port index="0" pull="up" tristatemask="0" />
+    <port index="1" pull="up" tristatemask="0" />
+    <port index="2" pull="up" tristatemask="0" /> 
     <txpower power="15" bias="5" />
     <script enable="true" />
     <usart channel="0" mode="spi_slave" alternate="1" polarity="negative" phase="0" endianness="msb" baud="2000000" endpoint="none" />
     <usart channel="1" alternate="2" baud="57600" endpoint="none" flow="false"/>
     <throughput optimize="performance" />
+    <!-- 
     <port index="0" pull="down" tristatemask="0" />
     <port index="1" pull="down" tristatemask="0" />
-    <port index="2" pull="down" tristatemask="0" />
+    <port index="2" pull="down" tristatemask="0" /> 
+    -->
 </hardware>

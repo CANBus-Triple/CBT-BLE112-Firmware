@@ -5,6 +5,11 @@ dim pin(2)
 dim pin_len
 dim auth
 
+#Sleep Pin read
+dim portReadResult
+dim portReadPort
+dim portReadData
+
 # endpoint data in
 dim in(20) 
 dim in_len
@@ -41,15 +46,24 @@ end
 procedure mcu_interrupt()
 	at_interrupt = 1
     call system_endpoint_tx(system_endpoint_uart1, 22, "\n\r{e:'mcu_interrupt'}}\n")
-    call hardware_io_port_write(1, $01, $01)
-    call hardware_set_soft_timer(32768*0.2, 1, 1) # Call timer 1 once after 0.2 sec, to set the interrupt pin low
+    call hardware_io_port_write(0, $02, $02)
+    call hardware_set_soft_timer(32, 1, 1) # Call timer 1 once after 1 millisec, to set the interrupt pin low
 end
 
 procedure mcu_interrupt_complete()
 	at_interrupt = 0
     call attributes_write(xgatt_mcu_interrupt, 0, 1, 0)  # Set char back to 0 (off)
-	call hardware_io_port_write(1, $01, $00)
+	call hardware_io_port_write(0, $02, $00)
 end
+
+procedure mcu_wake_test()
+    call hardware_io_port_read(1, $01)(portReadResult, portReadPort, portReadData )
+
+    if portReadData != 01
+        call mcu_interrupt()
+    end if
+end
+
 
 procedure set_sensor_gatt( id, value )
 
@@ -112,14 +126,24 @@ event system_boot(major, minor, patch, build, ll_version, protocol_version, hw)
     
     #call system_endpoint_set_watermarks(system_endpoint_uart1, 0, 0)    # Disable watermarks
     call system_endpoint_set_watermarks(system_endpoint_uart1, 1, $ff)   # Enable watermarks
-    call gap_set_adv_parameters(32, 48, 7)      # Set advertisement parameters 20 to 30 ms and all channels
+    
+    # set advertisement interval to 1-2 seconds, all three channels
+    call gap_set_adv_parameters(1600, 3200, 7)
+
     call gap_set_mode(gap_general_discoverable, gap_undirected_connectable) # Start advertisement
     
-    # configure P1_0 and P0_0 as output. Connected LED and MCU Reset respectively
-	call hardware_io_port_config_direction(1, $01)
-    call hardware_io_port_config_direction(0, $01)
-	call hardware_io_port_write(0, $01, 0)
-    call hardware_io_port_write(1, $01, 0)
+    # set all GPIO pins to input/high (pull), except P1_0 and P1_1 to output HIGH (no internal pull-ups)
+    # P1_0/1 will leak current if not externally pulled or set as outputs
+    call hardware_io_port_config_direction(0, $0)
+    call hardware_io_port_write(0, $ff, $ff)
+    call hardware_io_port_config_direction(1, $2)
+    call hardware_io_port_write(1, $ff, $ff)
+    call hardware_io_port_config_direction(2, $0)
+    call hardware_io_port_write(2, $ff, $ff)
+
+    # configure P0_0 and P0_1 as output. Connected LED and MCU Interrupt respectively
+    call hardware_io_port_config_direction(0, $03)
+    call hardware_io_port_write(0, $03, 0)
 	
 	#Set timer to generate event every 2s
 	#call hardware_set_soft_timer(32768*2, 1, 0)
@@ -177,6 +201,8 @@ event connection_status(connection, flags, address, address_type, conn_interval,
     #call system_endpoint_tx(system_endpoint_uart1, 18, "\n\r++ Connected ++\n")
     call hardware_set_soft_timer((32768/1000) * conn_interval / 4, 2, 0)
     #call attributes_write(xgatt_debug, 0, 2, conn_interval)
+    call mcu_wake_test()
+    call system_endpoint_tx(system_endpoint_uart1, 2, $004E)
 end
 
 # Disconnection event listener
@@ -184,9 +210,10 @@ event connection_disconnected(connection, reason)
     connected = 0                   # We are not connected
     call hardware_io_port_write(0, $01, 0)
     #call system_endpoint_set_watermarks(system_endpoint_uart1, 0, 0)    # Disable watermarks
-    call gap_set_adv_parameters(32, 48, 7)      # Set advertisement parameters 20 to 30 ms and all channels
+    call gap_set_adv_parameters(1600, 3200, 7) # set advertisement interval to 1-2 seconds, all three channels
     call gap_set_mode(gap_general_discoverable, gap_undirected_connectable) # Start advertisement
     #call system_endpoint_tx(system_endpoint_uart1, 18, "\n\r++ Disconnected ++\n")
+    call system_endpoint_tx(system_endpoint_uart1, 2, $014E)
 end
 
 # Incoming data from Bluetooth: Attributes value event listener
@@ -240,6 +267,7 @@ end
 # System endpoint watermark TX event listener
 event system_endpoint_watermark_tx(endpoint, size)
     if (endpoint = system_endpoint_uart1) then
+        call mcu_wake_test()
         call system_endpoint_set_watermarks(system_endpoint_uart1, $ff, 0)      # Disable TX watermark
         call system_endpoint_tx(system_endpoint_uart1, out_len, out(0:out_len)) # Write data to UART
         call attributes_user_write_response(0,0)

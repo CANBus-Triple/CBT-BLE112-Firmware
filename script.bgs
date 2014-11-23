@@ -192,6 +192,11 @@ event hardware_soft_timer(handle)
         call system_reset(1)
     end if
 
+    # Delayed mcu sleep disable command
+    if handle = 4
+        call system_endpoint_tx(system_endpoint_uart1, 2, $004E)
+    end if
+
 end
 
 # Connection event listener
@@ -202,7 +207,7 @@ event connection_status(connection, flags, address, address_type, conn_interval,
     call hardware_set_soft_timer((32768/1000) * conn_interval / 4, 2, 0)
     #call attributes_write(xgatt_debug, 0, 2, conn_interval)
     call mcu_wake_test()
-    call system_endpoint_tx(system_endpoint_uart1, 2, $004E)
+    call hardware_set_soft_timer(3200, 4, 1) # Delayed sleep disable mcu command
 end
 
 # Disconnection event listener

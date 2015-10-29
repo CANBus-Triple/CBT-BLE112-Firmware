@@ -1,0 +1,16 @@
+xgatt_data_rx 8
+xgatt_data 12
+xgatt_mcu_interrupt 16
+xgatt_sensor1 20
+xgatt_sensor2 24
+xgatt_sensor3 28
+xgatt_sensor4 32
+xgatt_sensor5 36
+xgatt_sensor6 40
+xgatt_sensor7 44
+xgatt_sensor8 48
+xgatt_dfu_reset 53
+xgatt_pin 56
+xgatt_set_pin 59
+xgatt_debug 63
+xgatt_debug2 67

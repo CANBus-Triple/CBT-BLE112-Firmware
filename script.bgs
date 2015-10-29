@@ -11,11 +11,11 @@ dim portReadPort
 dim portReadData
 
 # endpoint data in
-dim in(20) 
+dim in(20)
 dim in_len
 
 # endpoint data out
-dim out(20) 
+dim out(20)
 dim out_len
 
 # Serial RX Buffer
@@ -45,7 +45,7 @@ end
 
 procedure mcu_interrupt()
 	at_interrupt = 1
-    call system_endpoint_tx(system_endpoint_uart1, 22, "\n\r{e:'mcu_interrupt'}}\n")
+    call system_endpoint_tx(system_endpoint_uart1, 20, "{e:'mcu_interrupt'}\n")
     call hardware_io_port_write(0, $02, $02)
     call hardware_set_soft_timer(32, 1, 1) # Call timer 1 once after 1 millisec, to set the interrupt pin low
 end
@@ -98,7 +98,7 @@ procedure set_sensor_gatt( id, value )
     if id = $08
         call attributes_write(xgatt_sensor8, 0, 2, value)
     end if
-    
+
 
 end
 
@@ -118,20 +118,20 @@ event system_boot(major, minor, patch, build, ll_version, protocol_version, hw)
     #call attributes_write(xgatt_debug, 0, 2, pin(0:2))
 
     connected = 0               # We are not connected
-    at_interrupt = 0				# Set MCU reset pin low, so so low. 
+    at_interrupt = 0				# Set MCU reset pin low, so so low.
 
     # Reset Serial RX Buffer Index
     srx_index = 0
     srx_write_index = 0
-    
+
     #call system_endpoint_set_watermarks(system_endpoint_uart1, 0, 0)    # Disable watermarks
     call system_endpoint_set_watermarks(system_endpoint_uart1, 1, $ff)   # Enable watermarks
-    
+
     # set advertisement interval to 1-2 seconds, all three channels
     call gap_set_adv_parameters(1600, 3200, 7)
 
     call gap_set_mode(gap_general_discoverable, gap_undirected_connectable) # Start advertisement
-    
+
     # set all GPIO pins to input/high (pull), except P1_0 and P1_1 to output HIGH (no internal pull-ups)
     # P1_0/1 will leak current if not externally pulled or set as outputs
     call hardware_io_port_config_direction(0, $0)
@@ -144,14 +144,13 @@ event system_boot(major, minor, patch, build, ll_version, protocol_version, hw)
     # configure P0_0 and P0_1 as output. Connected LED and MCU Interrupt respectively
     call hardware_io_port_config_direction(0, $03)
     call hardware_io_port_write(0, $03, 0)
-	
-	#Set timer to generate event every 2s
-	#call hardware_set_soft_timer(32768*2, 1, 0)
 
-    
+		#Set timer to generate event every 2s
+		#call hardware_set_soft_timer(32768*2, 1, 0)
+
 end
 
-#Timer event listener 
+#Timer event listener
 event hardware_soft_timer(handle)
 
     if handle = 1
@@ -244,7 +243,7 @@ event attributes_value(connection, reason, handle, offset, value_len, value_data
             out_len = value_len                 										# Store data length
             call system_endpoint_set_watermarks(system_endpoint_uart1, $ff, out_len)    # Set TX watermark to data length
         end if
-        
+
         if handle = xgatt_mcu_interrupt then
         	if value_data(0:1) & $01
         		call mcu_interrupt()
@@ -283,7 +282,7 @@ end
 # Attribute status event listener
 # Event occurs if attribute's Client Characteristic Configuration value changes.
 event attributes_status(handle, flags)
-    
+
     if handle = xgatt_data_rx then
         if flags & 2 then
             srx_indicate = 1
@@ -297,14 +296,17 @@ event attributes_status(handle, flags)
             srx_indicated = 0
         end if
     end if
-    
+
 end
 
 # System endpoint watermark event listener
 # Generated when there is data available from UART
 event system_endpoint_watermark_rx(endpoint, size)
+
     if (endpoint = system_endpoint_uart1) then
-        
+
+				call hardware_io_port_write(0, $01, 1)
+
         call system_endpoint_set_watermarks(system_endpoint_uart1, 0, $ff)  # disable RX watermark
 
         in_len = size
@@ -319,14 +321,18 @@ event system_endpoint_watermark_rx(endpoint, size)
         else
 
             call system_endpoint_rx(system_endpoint_uart1, in_len)(result, in_len, srx_buffer(srx_index:in_len))
-            
+
             ## Check buffer for sensor command 0xe783
             if srx_buffer(srx_index:2) = $83e7
                 call set_sensor_gatt( srx_buffer(srx_index+2:1), srx_buffer(srx_index+3:2) )
             else
-                if connected = 1
-                    srx_index = srx_index + in_len
-                end if
+                if srx_buffer(srx_index:2) = $84e8 || srx_buffer(srx_index-1:2) = $84e8
+									call mcu_interrupt()
+								else
+									if connected = 1
+										srx_index = srx_index + in_len
+									end if
+								end if
             end if
 
         end if
@@ -334,6 +340,8 @@ event system_endpoint_watermark_rx(endpoint, size)
         call system_endpoint_set_watermarks(system_endpoint_uart1, 1, $ff)  # enable RX watermark
 
         #call attributes_write(xgatt_debug, 0, 2, in_len)
+
+				call hardware_io_port_write(0, $01, 0)
 
     end if
 end
@@ -347,9 +355,3 @@ event attclient_indicated(connection, attrhandle)
         in_len = 0
     end if
 end
-
-
-
-
-
-
